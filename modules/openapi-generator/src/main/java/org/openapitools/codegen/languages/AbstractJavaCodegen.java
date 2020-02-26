@@ -26,8 +26,6 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.media.StringSchema;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.parser.util.SchemaTypeUtil;
-import java.time.LocalDate;
-import java.time.ZoneId;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.BooleanUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -38,6 +36,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -59,6 +59,13 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     public static final String DISABLE_HTML_ESCAPING = "disableHtmlEscaping";
     public static final String BOOLEAN_GETTER_PREFIX = "booleanGetterPrefix";
     public static final String ADDITIONAL_MODEL_TYPE_ANNOTATIONS = "additionalModelTypeAnnotations";
+    public static final String GENERATE_MODEL_SETTERS = "generateModelSetters";
+    public static final String USE_LOMBOK_GETTER = "useLombokGetter";
+    public static final String USE_LOMBOK_ALL_ARGS_CONSTRUCTOR = "useLombokAllArgsConstructor";
+    public static final String USE_LOMBOK_TO_STRING = "useLombokToString";
+    public static final String USE_LOMBOK_BUILDER = "useLombokToBuilder";
+    public static final String USE_LOMBOK_EQUALS_HASHCODE = "useLombokEqualsAndHashcode";
+    public static final String USE_LOMBOK_NON_NULL_FIELDS = "useLombokNonNullFields";
 
     protected String dateLibrary = "threetenbp";
     protected boolean supportAsync = false;
@@ -97,6 +104,13 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     protected String parentVersion = "";
     protected boolean parentOverridden = false;
     protected List<String> additionalModelTypeAnnotations = new LinkedList<>();
+    private boolean shouldGenerateSetters = true;
+    private boolean useLombokGetter = false;
+    private boolean useLombokAllArgsConstructor = false;
+    private boolean useLombokToString = false;
+    private boolean useLommbokEqualsAndHashCode = false;
+    private boolean useLombokBuilder = false;
+    private boolean useLombokNonNullFields = false;
 
     public AbstractJavaCodegen() {
         super();
@@ -191,6 +205,13 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         cliOptions.add(CliOption.newBoolean(FULL_JAVA_UTIL, "whether to use fully qualified name for classes under java.util. This option only works for Java API client", fullJavaUtil));
         cliOptions.add(CliOption.newBoolean(CodegenConstants.HIDE_GENERATION_TIMESTAMP, CodegenConstants.HIDE_GENERATION_TIMESTAMP_DESC, this.isHideGenerationTimestamp()));
         cliOptions.add(CliOption.newBoolean(WITH_XML, "whether to include support for application/xml content type and include XML annotations in the model (works with libraries that provide support for JSON and XML)"));
+        cliOptions.add(CliOption.newBoolean(GENERATE_MODEL_SETTERS, "Generate setters", shouldGenerateSetters));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_GETTER, "Generate setters", useLombokGetter));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_ALL_ARGS_CONSTRUCTOR, "Generate setters", useLombokAllArgsConstructor));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_TO_STRING, "Generate setters", useLombokToString));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_EQUALS_HASHCODE, "Generate setters", useLommbokEqualsAndHashCode));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_BUILDER, "Generate setters", useLombokBuilder));
+        cliOptions.add(CliOption.newBoolean(USE_LOMBOK_NON_NULL_FIELDS, "Generate setters", useLombokNonNullFields));
 
         CliOption dateLibrary = new CliOption(DATE_LIBRARY, "Option. Date library to use").defaultValue(this.getDateLibrary());
         Map<String, String> dateOptions = new HashMap<>();
@@ -411,6 +432,28 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
 
         if (!StringUtils.isEmpty(parentGroupId) && !StringUtils.isEmpty(parentArtifactId) && !StringUtils.isEmpty(parentVersion)) {
             additionalProperties.put("parentOverridden", true);
+        }
+
+        if (additionalProperties.containsKey(USE_LOMBOK_GETTER)) {
+            this.setUseLombokGetter(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_GETTER).toString()));
+        }
+        if (additionalProperties.containsKey(USE_LOMBOK_ALL_ARGS_CONSTRUCTOR)) {
+            this.setUseLombokAllArgsConstructor(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_ALL_ARGS_CONSTRUCTOR).toString()));
+        }
+        if (additionalProperties.containsKey(USE_LOMBOK_TO_STRING)) {
+            this.setUseLombokToString(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_TO_STRING).toString()));
+        }
+        if (additionalProperties.containsKey(USE_LOMBOK_EQUALS_HASHCODE)) {
+            this.setUseLombokToString(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_EQUALS_HASHCODE).toString()));
+        }
+        if (additionalProperties.containsKey(USE_LOMBOK_BUILDER)) {
+            this.setUseLombokToString(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_BUILDER).toString()));
+        }
+        if (additionalProperties.containsKey(USE_LOMBOK_NON_NULL_FIELDS)) {
+            this.setUseLombokToString(Boolean.parseBoolean(additionalProperties.get(USE_LOMBOK_NON_NULL_FIELDS).toString()));
+        }
+        if (additionalProperties.containsKey(GENERATE_MODEL_SETTERS)) {
+            this.setShouldGenerateSetters(Boolean.parseBoolean(additionalProperties.get(GENERATE_MODEL_SETTERS).toString()));
         }
 
         // make api and model doc path available in mustache template
@@ -1464,6 +1507,62 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
 
     public void setBooleanGetterPrefix(String booleanGetterPrefix) {
         this.booleanGetterPrefix = booleanGetterPrefix;
+    }
+
+    public boolean isShouldGenerateSetters() {
+        return shouldGenerateSetters;
+    }
+
+    public void setShouldGenerateSetters(boolean shouldGenerateSetters) {
+        this.shouldGenerateSetters = shouldGenerateSetters;
+    }
+
+    public boolean isUseLombokGetter() {
+        return useLombokGetter;
+    }
+
+    public void setUseLombokGetter(boolean useLombokGetter) {
+        this.useLombokGetter = useLombokGetter;
+    }
+
+    public boolean isUseLombokAllArgsConstructor() {
+        return useLombokAllArgsConstructor;
+    }
+
+    public void setUseLombokAllArgsConstructor(boolean useLombokAllArgsConstructor) {
+        this.useLombokAllArgsConstructor = useLombokAllArgsConstructor;
+    }
+
+    public boolean isUseLombokToString() {
+        return useLombokToString;
+    }
+
+    public void setUseLombokToString(boolean useLombokToString) {
+        this.useLombokToString = useLombokToString;
+    }
+
+    public boolean isUseLommbokEqualsAndHashCode() {
+        return useLommbokEqualsAndHashCode;
+    }
+
+    public void setUseLommbokEqualsAndHashCode(boolean useLommbokEqualsAndHashCode) {
+        this.useLommbokEqualsAndHashCode = useLommbokEqualsAndHashCode;
+    }
+
+    public boolean isUseLombokBuilder() {
+        return useLombokBuilder;
+    }
+
+    public void setUseLombokBuilder(boolean useLombokBuilder) {
+        this.useLombokBuilder = useLombokBuilder;
+    }
+
+    public boolean isUseLombokNonNullFields() {
+        return useLombokNonNullFields;
+    }
+
+    public void setUseLombokNonNullFields(boolean useLombokNonNullFields) {
+        this.useLombokNonNullFields = useLombokNonNullFields;
     }
 
     @Override

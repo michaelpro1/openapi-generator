@@ -9,6 +9,13 @@
 {{/vars}}
 })
 {{/jackson}}
+{{#useLombokAllArgsConstructor}}@lombok.AllArgsConstructor{{/useLombokAllArgsConstructor}}
+{{#useLombokToString}}@lombok.ToString{{/useLombokToString}}
+{{#useLommbokEqualsAndHashCode}}@lombok.EqualsAndHashCode{{/useLommbokEqualsAndHashCode}}
+{{#useLombokBuilder}}
+{{#parent}}@lombok.experimental.SuperBuilder{{/parent}}
+{{^parent}}@lombok.Builder{{/parent}}
+{{/useLombokBuilder}}
 {{>additionalModelTypeAnnotations}}{{>generatedAnnotation}}{{#discriminator}}{{>typeInfoAnnotation}}{{/discriminator}}{{>xmlAnnotation}}
 public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorExtensions.x-implements}}{{#-first}}implements {{{.}}}{{/-first}}{{^-first}}, {{{.}}}{{/-first}}{{#-last}} {{/-last}}{{/vendorExtensions.x-implements}}{
 {{#serializableModel}}
@@ -66,7 +73,8 @@ public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorE
   {{/vendorExtensions.x-is-jackson-optional-nullable}}
   {{^vendorExtensions.x-is-jackson-optional-nullable}}
   {{#isContainer}}
-  private {{{datatypeWithEnum}}} {{name}}{{#required}}{{#defaultValue}} = {{{.}}}{{/defaultValue}}{{/required}}{{^required}} = null{{/required}};
+  {{#useLombokNonNullFields}}{{#required}}@lombok.NonNull{{/required}}{{/useLombokNonNullFields}}
+      private {{{datatypeWithEnum}}} {{name}}{{#required}}{{#defaultValue}} = {{{.}}}{{/defaultValue}}{{/required}}{{^required}} = null{{/required}};
   {{/isContainer}}
   {{^isContainer}}
   private {{{datatypeWithEnum}}} {{name}}{{#defaultValue}} = {{{.}}}{{/defaultValue}};
@@ -215,6 +223,7 @@ public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorE
   {{/vendorExtensions.x-is-jackson-optional-nullable}}
 
   {{^isReadOnly}}
+  {{#shouldGenerateSetters}}
   public void {{setter}}({{{datatypeWithEnum}}} {{name}}) {
     {{#vendorExtensions.x-is-jackson-optional-nullable}}
     this.{{name}} = JsonNullable.<{{{datatypeWithEnum}}}>of({{name}});
@@ -223,10 +232,12 @@ public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorE
     this.{{name}} = {{name}};
     {{/vendorExtensions.x-is-jackson-optional-nullable}}
   }
+  {{/shouldGenerateSetters}}
   {{/isReadOnly}}
 
   {{/vars}}
 
+{{^useLombokEqualsAndHashCode}}
 {{^supportJava6}}
   @Override
   public boolean equals(java.lang.Object o) {
@@ -281,7 +292,9 @@ public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorE
   }
 
 {{/supportJava6}}
+{{/useLombokEqualsAndHashCode}}
 
+{{^useLombokToString}}
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
@@ -295,6 +308,7 @@ public class {{classname}} {{#parent}}extends {{{parent}}} {{/parent}}{{#vendorE
     sb.append("}");
     return sb.toString();
   }
+{{/useLombokToString}}
 
   /**
    * Convert the given object to string with each line indented by 4 spaces
