@@ -10,6 +10,9 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <swagger-core-version>1.5.18</swagger-core-version>
+        {{#isLombokModel}}
+            <lombok-version>1.18.12</lombok-version>
+        {{/isLombokModel}}
     </properties>
 {{#parentOverridden}}
     <parent>
@@ -112,6 +115,14 @@
             <artifactId>spring-boot-starter-hateoas</artifactId>
         </dependency>
 {{/hateoas}}
+{{#isLombokModel}}
+    <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok-version}</version>
+        <scope>provided</scope>
+    </dependency>
+{{/isLombokModel}}
 {{#useBeanValidation}}
         <dependency>
             <groupId>org.hibernate.validator</groupId>

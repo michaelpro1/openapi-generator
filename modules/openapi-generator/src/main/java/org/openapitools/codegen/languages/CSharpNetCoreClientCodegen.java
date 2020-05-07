@@ -92,7 +92,7 @@ public class CSharpNetCoreClientCodegen extends AbstractCSharpCodegen {
     public CSharpNetCoreClientCodegen() {
         super();
 
-        featureSet = getFeatureSet().modify()
+        modifyFeatureSet(features -> features
                 .includeDocumentationFeatures(DocumentationFeature.Readme)
                 .securityFeatures(EnumSet.of(
                         SecurityFeature.OAuth2_Implicit,
@@ -115,7 +115,7 @@ public class CSharpNetCoreClientCodegen extends AbstractCSharpCodegen {
                         ClientModificationFeature.BasePath,
                         ClientModificationFeature.UserAgent
                 )
-                .build();
+        );
 
         // mapped non-nullable type without ?
         typeMapping = new HashMap<String, String>();
@@ -423,10 +423,6 @@ public class CSharpNetCoreClientCodegen extends AbstractCSharpCodegen {
         postProcessEmitDefaultValue(property.vendorExtensions);
 
         super.postProcessModelProperty(model, property);
-
-        if (!property.isContainer && (nullableType.contains(property.dataType) || property.isEnum)) {
-            property.vendorExtensions.put("x-csharp-value-type", true);
-        }
     }
 
     @Override
@@ -461,14 +457,6 @@ public class CSharpNetCoreClientCodegen extends AbstractCSharpCodegen {
         postProcessPattern(parameter.pattern, parameter.vendorExtensions);
         postProcessEmitDefaultValue(parameter.vendorExtensions);
         super.postProcessParameter(parameter);
-
-        if (nullableType.contains(parameter.dataType)) {
-            if (!parameter.required) { //optional
-                parameter.dataType = parameter.dataType + "?";
-            } else {
-                parameter.vendorExtensions.put("x-csharp-value-type", true);
-            }
-        }
     }
 
     /*

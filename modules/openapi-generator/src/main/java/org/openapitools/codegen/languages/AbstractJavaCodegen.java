@@ -60,6 +60,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     public static final String BOOLEAN_GETTER_PREFIX = "booleanGetterPrefix";
     public static final String ADDITIONAL_MODEL_TYPE_ANNOTATIONS = "additionalModelTypeAnnotations";
     public static final String IS_LOMBOK_MODEL = "isLombokModel";
+    public static final String DISCRIMINATOR_CASE_SENSITIVE = "discriminatorCaseSensitive";
 
     protected String dateLibrary = "threetenbp";
     protected boolean supportAsync = false;
@@ -82,9 +83,10 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     protected String licenseUrl = "http://unlicense.org";
     protected String projectFolder = "src/main";
     protected String projectTestFolder = "src/test";
-    protected String sourceFolder = projectFolder + "/java";
+    protected String sourceFolder = projectFolder + File.separator +"java";
     protected String testFolder = projectTestFolder + "/java";
     protected boolean fullJavaUtil;
+    protected boolean discriminatorCaseSensitive = true; // True if the discriminator value lookup should be case-sensitive.
     protected String javaUtilPrefix = "";
     protected Boolean serializableModel = false;
     protected boolean serializeBigDecimalAsString = false;
@@ -103,7 +105,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
     public AbstractJavaCodegen() {
         super();
 
-        featureSet = getFeatureSet().modify()
+        modifyFeatureSet(features -> features
                 .includeDocumentationFeatures(DocumentationFeature.Readme)
                 .wireFormatFeatures(EnumSet.of(WireFormatFeature.JSON, WireFormatFeature.XML))
                 .securityFeatures(EnumSet.noneOf(
@@ -121,7 +123,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
                 .includeClientModificationFeatures(
                         ClientModificationFeature.BasePath
                 )
-                .build();
+        );
 
         supportsInheritance = true;
         modelTemplateFiles.put("model.mustache", ".java");
@@ -191,6 +193,7 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         cliOptions.add(CliOption.newBoolean(CodegenConstants.SERIALIZABLE_MODEL, CodegenConstants.SERIALIZABLE_MODEL_DESC, this.getSerializableModel()));
         cliOptions.add(CliOption.newBoolean(CodegenConstants.SERIALIZE_BIG_DECIMAL_AS_STRING, CodegenConstants.SERIALIZE_BIG_DECIMAL_AS_STRING_DESC, serializeBigDecimalAsString));
         cliOptions.add(CliOption.newBoolean(FULL_JAVA_UTIL, "whether to use fully qualified name for classes under java.util. This option only works for Java API client", fullJavaUtil));
+        cliOptions.add(CliOption.newBoolean(DISCRIMINATOR_CASE_SENSITIVE, "Whether the discriminator value lookup should be case-sensitive or not. This option only works for Java API client", discriminatorCaseSensitive));
         cliOptions.add(CliOption.newBoolean(CodegenConstants.HIDE_GENERATION_TIMESTAMP, CodegenConstants.HIDE_GENERATION_TIMESTAMP_DESC, this.isHideGenerationTimestamp()));
         cliOptions.add(CliOption.newBoolean(WITH_XML, "whether to include support for application/xml content type and include XML annotations in the model (works with libraries that provide support for JSON and XML)"));
         cliOptions.add(CliOption.newBoolean(IS_LOMBOK_MODEL, "Use lombok for the pojo generation. It comes with @AllArgsConstructor, @EqualsAndHashCode, @ToString, @Getter, @SuperBuilder, @Builder and @NonNull on required fields", isLombokModel));
@@ -394,6 +397,15 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         if (additionalProperties.containsKey(FULL_JAVA_UTIL)) {
             this.setFullJavaUtil(Boolean.valueOf(additionalProperties.get(FULL_JAVA_UTIL).toString()));
         }
+        if (additionalProperties.containsKey(DISCRIMINATOR_CASE_SENSITIVE)) {
+            this.setDiscriminatorCaseSensitive(Boolean.valueOf(additionalProperties.get(DISCRIMINATOR_CASE_SENSITIVE).toString()));            
+        } else {
+            // By default, the discriminator lookup should be case sensitive. There is nothing in the OpenAPI specification
+            // that indicates the lookup should be case insensitive. However, some implementations perform
+            // a case-insensitive lookup.
+            this.setDiscriminatorCaseSensitive(Boolean.TRUE);            
+        }
+        additionalProperties.put(DISCRIMINATOR_CASE_SENSITIVE, this.discriminatorCaseSensitive);
 
         if (fullJavaUtil) {
             javaUtilPrefix = "java.util.";
@@ -758,13 +770,10 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
         if (ModelUtils.isArraySchema(p)) {
             Schema<?> items = getSchemaItems((ArraySchema) p);
             return getSchemaType(p) + "<" + getTypeDeclaration(ModelUtils.unaliasSchema(this.openAPI, items)) + ">";
-        } else if (ModelUtils.isMapSchema(p)) {
-            Schema inner = ModelUtils.getAdditionalProperties(p);
-            if (inner == null) {
-                LOGGER.error("`{}` (map property) does not have a proper inner type defined. Default to type:string", p.getName());
-                inner = new StringSchema().description("TODO default missing map inner type to string");
-                p.setAdditionalProperties(inner);
-            }
+        } else if (ModelUtils.isMapSchema(p) && !ModelUtils.isComposedSchema(p)) {
+            // Note: ModelUtils.isMapSchema(p) returns true when p is a composed schema that also defines
+            // additionalproperties: true
+            Schema<?> inner = getSchemaAdditionalProperties(p);
             return getSchemaType(p) + "<String, " + getTypeDeclaration(ModelUtils.unaliasSchema(this.openAPI, inner)) + ">";
         }
         return super.getTypeDeclaration(p);
@@ -1466,6 +1475,15 @@ public abstract class AbstractJavaCodegen extends DefaultCodegen implements Code
 
     public void setFullJavaUtil(boolean fullJavaUtil) {
         this.fullJavaUtil = fullJavaUtil;
+    }
+
+    /**
+     * Set whether discriminator value lookup is case-sensitive or not.
+     * 
+     * @param discriminatorCaseSensitive true if the discriminator value lookup should be case sensitive.
+     */
+    public void setDiscriminatorCaseSensitive(boolean discriminatorCaseSensitive) {
+        this.discriminatorCaseSensitive = discriminatorCaseSensitive;
     }
 
     public void setWithXml(boolean withXml) {
